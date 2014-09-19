@@ -84,17 +84,105 @@ function process(data) {
   return putParameters(parameters);
 }
 
+/* start Andrew functions */
+function getParameterByName(name,url) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(url);
+    return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+
+function tinCanPutStatementCallback(xhr, statement) {
+	err = xhr[0].err;
+	if (!err) {
+		GetPlayer().SetTinCanResume(undefined);
+	}
+	else
+	{
+		GetPlayer().FatalTinCanError(err);
+	}
+}
+
+function tinCanGetStateCallback(err, result) {
+	if (!err) {
+		GetPlayer().SetTinCanResume(result.contents);
+	}
+	else
+	{
+		GetPlayer().FatalTinCanError(err);
+	}
+}
+
+function tinCanPutStateCallback(err, result) {
+	if (!err) {
+		GetPlayer().SetTinCanResume(undefined);
+	}
+	else
+	{
+		GetPlayer().FatalTinCanError(err);
+	}
+}
+
+var tincanJS; //= false;
+
+tincanJS = new TinCan ({url: window.location.href});
+
+//TinCan.DEBUG = true;
+
+/* end Andrew functions */
+
 
 // If the flash player is running
 if ( window.SendTinCanRequest ) {
   var originalSendTinCanRequest = window.SendTinCanRequest;
   window.SendTinCanRequest = function (nMessageType, strMethod, strData, strUrl, arrHeaders) {
-    return originalSendTinCanRequest(
-      nMessageType,
-      strMethod,
-      escape(process(strData)),
-      strUrl,
-      arrHeaders);
+  	
+  	/* start Andrew modified code */
+	
+	var tincanresource = strUrl.substring(tincanJS.recordStores[0].endpoint.length,strUrl.indexOf("?"));
+	var tincanmethod = getParameterByName('method',strUrl);
+
+	if (tincanresource == "statements"  && tincanmethod == "PUT"){
+		tincanJS.sendStatement(
+			JSON.parse(
+				getParameterByName(
+					'content',
+					'?' + decodeURIComponent(strData)
+				)
+			),
+			tinCanPutStatementCallback
+		);
+		return true;
+	} else if (tincanresource == "activities/state"  && tincanmethod == "GET"){
+		var rtnStateObj = tincanJS.getState(
+			getParameterByName('stateId','?' + decodeURIComponent(strData)),
+			{
+				'activity' : {
+					'id' : getParameterByName('activityId','?' + decodeURIComponent(strData))
+				},
+				callback : tinCanGetStateCallback
+			}
+		);
+		rtnState = (rtnStateObj.state ? rtnStateObj.state : undefined);
+		return rtnStateObj.state;
+	} else if (tincanresource == "activities/state"  && tincanmethod == "PUT"){
+		tincanJS.setState(
+			getParameterByName('stateId','?' + decodeURIComponent(strData)),
+			getParameterByName('content','?' + decodeURIComponent(strData)),
+			{
+				'activity' : {
+					'id' : getParameterByName('activityId','?' + decodeURIComponent(strData))
+				},
+				callback : tinCanPutStateCallback,
+				contentType : 'text/plain'
+			}
+		);
+		return true;
+	} else {
+		console.log ('method/resource combination not recognised: ' + tincanresource + ' , ' + tincanmethod);
+	}
+  	
+    /* end Andrew modified code */
   };
 }
 
