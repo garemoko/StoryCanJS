@@ -105,7 +105,12 @@ function tinCanPutStatementCallback(xhr, statement) {
 
 function tinCanGetStateCallback(err, result) {
 	if (!err) {
-		GetPlayer().SetTinCanResume(result.contents);
+		if (result){
+			GetPlayer().SetTinCanResume(result.contents);
+		}
+		else {
+			GetPlayer().SetTinCanResume(undefined);
+		}
 	}
 	else
 	{
